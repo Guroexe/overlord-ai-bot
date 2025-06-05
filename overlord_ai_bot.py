@@ -2,10 +2,22 @@ import telebot
 from telebot import types
 import random
 import os
+import requests
+from io import BytesIO
 
 # Получаем токен из переменных окружения (безопасно)
 BOT_TOKEN = os.getenv('BOT_TOKEN', "7972832759:AAEwXCLf7bXdYguvmx4cJvPCfnfWmslXVW8")
 bot = telebot.TeleBot(BOT_TOKEN)
+
+# Функция для загрузки файлов с Hugging Face
+def download_file(url):
+    try:
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+        return BytesIO(response.content)
+    except Exception as e:
+        print(f"Ошибка загрузки файла {url}: {e}")
+        return None
 
 # Базовый URL для файлов Hugging Face
 HF_BASE_URL = "https://huggingface.co/guroexe/overlord_bot/resolve/main/"
@@ -33,13 +45,19 @@ EXAMPLE_PROMPTS = [
 @bot.message_handler(commands=['start'])
 def start_message(message):
     # Отправляем приветственное видео
-    video_url = HF_BASE_URL + "IKONA%20-%20ИИ.mp4"  # URL-кодированное название файла
+    video_url = HF_BASE_URL + "IKONA%20-%20ИИ.mp4"
     
     try:
-        bot.send_video(message.chat.id, video_url)
+        print("Загружаем видео...")
+        video_file = download_file(video_url)
+        if video_file:
+            bot.send_video(message.chat.id, video_file)
+            print("Видео отправлено успешно")
+        else:
+            bot.send_message(message.chat.id, "🎬 Приветственное видео временно недоступно")
     except Exception as e:
         print(f"Ошибка отправки видео: {e}")
-        bot.send_message(message.chat.id, "Видео временно недоступно")
+        bot.send_message(message.chat.id, "🎬 Приветственное видео временно недоступно")
     
     # Отправляем описание бота
     description_text = """
@@ -76,7 +94,13 @@ OVERLORD AI INK - это бот для генерации изображений
 """
     
     try:
-        bot.send_animation(message.chat.id, gif_url, caption=colab_text, parse_mode='Markdown')
+        print("Загружаем GIF...")
+        gif_file = download_file(gif_url)
+        if gif_file:
+            bot.send_animation(message.chat.id, gif_file, caption=colab_text, parse_mode='Markdown')
+            print("GIF отправлен успешно")
+        else:
+            bot.send_message(message.chat.id, colab_text, parse_mode='Markdown')
     except Exception as e:
         print(f"Ошибка отправки GIF: {e}")
         bot.send_message(message.chat.id, colab_text, parse_mode='Markdown')
@@ -110,11 +134,17 @@ def send_example_prompt(chat_id):
     example = random.choice(EXAMPLE_PROMPTS)
     
     try:
-        # Отправляем изображение с описанием
-        bot.send_photo(chat_id, example["image_url"], caption=example["description"], parse_mode='Markdown')
+        print(f"Загружаем изображение: {example['image_url']}")
+        image_file = download_file(example["image_url"])
+        if image_file:
+            # Отправляем изображение с описанием
+            bot.send_photo(chat_id, image_file, caption=example["description"], parse_mode='Markdown')
+            print("Изображение отправлено успешно")
+        else:
+            bot.send_message(chat_id, f"🖼️ Изображение временно недоступно\n\n{example['description']}", parse_mode='Markdown')
     except Exception as e:
         print(f"Ошибка отправки изображения: {e}")
-        bot.send_message(chat_id, f"Изображение временно недоступно\n\n{example['description']}", parse_mode='Markdown')
+        bot.send_message(chat_id, f"🖼️ Изображение временно недоступно\n\n{example['description']}", parse_mode='Markdown')
     
     # Добавляем кнопки для повторного просмотра примеров
     markup = types.InlineKeyboardMarkup(row_width=1)
